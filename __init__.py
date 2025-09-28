@@ -5,6 +5,7 @@ import os
 import threading
 import atexit
 from aqt import mw, gui_hooks
+from aqt.utils import tooltip, showInfo
 from anki.hooks import addHook, remHook
 
 # Try to import Qt components for shortcuts and always-on-top functionality
@@ -61,7 +62,7 @@ class AHKGlobalHotkeyController:
         if not os.path.exists(ahk_exe_path):
             error_msg = f"AutoHotkey.exe not found at {ahk_exe_path}"
             debug_log(error_msg)
-            mw.utils.showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nPlease reinstall the addon.")
+            showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nPlease reinstall the addon.")
             return
 
         # Get AHK script path
@@ -69,7 +70,7 @@ class AHKGlobalHotkeyController:
         if not os.path.exists(ahk_script_path):
             error_msg = f"AutoHotkey script not found at {ahk_script_path}"
             debug_log(error_msg)
-            mw.utils.showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nPlease reinstall the addon.")
+            showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nPlease reinstall the addon.")
             return
 
         try:
@@ -85,12 +86,12 @@ class AHKGlobalHotkeyController:
             # Setup Qt shortcuts to catch function keys from AHK
             self._setup_function_key_shortcuts()
 
-            mw.utils.tooltip("🎯 Global hotkeys active!\\n\\nCtrl+Z = Good, Ctrl+X = Again, Ctrl+O = Always on top\\nWorks everywhere - even when Anki is not in focus!", period=4000)
+            tooltip("🎯 Global hotkeys active!\\n\\nCtrl+Z = Good, Ctrl+X = Again, Ctrl+O = Always on top\\nWorks everywhere - even when Anki is not in focus!", period=4000)
 
         except Exception as e:
             error_msg = f"Failed to start AutoHotkey: {e}"
             debug_log(error_msg)
-            mw.utils.showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nTry running Anki as administrator or check if antivirus is blocking AutoHotkey.")
+            showInfo(f"Global Hotkeys Error: {error_msg}\\n\\nTry running Anki as administrator or check if antivirus is blocking AutoHotkey.")
 
     def stop_global_hotkeys(self):
         """Stop AutoHotkey global hotkeys when reviewing ends"""
@@ -167,7 +168,7 @@ class AHKGlobalHotkeyController:
 
         if not mw.reviewer or not mw.reviewer.card:
             debug_log("No reviewer or card available")
-            mw.utils.tooltip("No card to score - start reviewing first!", period=1500)
+            tooltip("No card to score - start reviewing first!", period=1500)
             return
 
         def score_on_main_thread():
@@ -177,15 +178,15 @@ class AHKGlobalHotkeyController:
                     # Score as Good (3)
                     mw.reviewer._answerCard(3)
                     debug_log("Card scored as Good (3)")
-                    mw.utils.tooltip("✅ Card scored as Good", period=800)
+                    tooltip("✅ Card scored as Good", period=800)
                 elif score == 'again':
                     # Score as Again (1)
                     mw.reviewer._answerCard(1)
                     debug_log("Card scored as Again (1)")
-                    mw.utils.tooltip("🔄 Card scored as Again", period=800)
+                    tooltip("🔄 Card scored as Again", period=800)
             except Exception as e:
                 debug_log(f"Error scoring card: {e}")
-                mw.utils.tooltip(f"Error scoring card: {e}", period=2000)
+                tooltip(f"Error scoring card: {e}", period=2000)
 
         # Execute on main thread
         mw.progress.timer(10, score_on_main_thread, False)
@@ -193,7 +194,7 @@ class AHKGlobalHotkeyController:
     def toggle_always_on_top(self):
         """Toggle Anki window always-on-top state"""
         if Qt is None:
-            mw.utils.showInfo("Qt library not available for always-on-top functionality")
+            showInfo("Qt library not available for always-on-top functionality")
             return
 
         try:
@@ -203,18 +204,18 @@ class AHKGlobalHotkeyController:
                 # Enable always-on-top
                 mw.setWindowFlags(mw.windowFlags() | Qt.WindowStaysOnTopHint)
                 mw.show()
-                mw.utils.tooltip("📌 Always-on-top enabled", period=1000)
+                tooltip("📌 Always-on-top enabled", period=1000)
                 debug_log("Always-on-top enabled")
             else:
                 # Disable always-on-top
                 mw.setWindowFlags(mw.windowFlags() & ~Qt.WindowStaysOnTopHint)
                 mw.show()
-                mw.utils.tooltip("📌 Always-on-top disabled", period=1000)
+                tooltip("📌 Always-on-top disabled", period=1000)
                 debug_log("Always-on-top disabled")
         except Exception as e:
             error_msg = f"Error toggling always-on-top: {e}"
             debug_log(error_msg)
-            mw.utils.showInfo(error_msg)
+            showInfo(error_msg)
 
     def on_reviewer_did_show_question(self, card):
         """Called when a card question is shown - start global hotkeys"""
@@ -263,7 +264,7 @@ setup_hooks()
 
 # Show startup message
 try:
-    if mw and mw.utils:
+    if mw:
         debug_log("Addon loaded successfully - showing startup message")
         startup_msg = "🎯 AutoHotkey Global Hotkeys loaded!\\n\\n"
         startup_msg += "Global Hotkeys (work everywhere):\\n"
@@ -275,8 +276,8 @@ try:
 
         # Use a timer to show the message after Anki is fully loaded
         def show_startup_message():
-            if mw and mw.utils:
-                mw.utils.tooltip(startup_msg, period=5000)
+            if mw:
+                tooltip(startup_msg, period=5000)
 
         # Delay the message slightly to ensure Anki is ready
         from aqt.qt import QTimer
