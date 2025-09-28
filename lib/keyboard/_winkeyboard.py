@@ -553,9 +553,29 @@ def prepare_intercept(callback):
     thread_id = DWORD(0)
     keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_callback, handle, thread_id)
 
+    # Check if hook installation failed
+    if not keyboard_hook:
+        error_code = ctypes.get_last_error()
+        error_msg = f"Failed to install Windows keyboard hook. Error code: {error_code}"
+
+        # Common Windows hook error codes and their meanings
+        if error_code == 5:  # ERROR_ACCESS_DENIED
+            error_msg += " (Access denied - try running as administrator)"
+        elif error_code == 1428:  # ERROR_HOOK_NEEDS_HMOD
+            error_msg += " (Hook procedure must be in a DLL)"
+        elif error_code == 1429:  # ERROR_GLOBAL_ONLY_HOOK
+            error_msg += " (Global hook must be in a DLL)"
+        elif error_code == 87:  # ERROR_INVALID_PARAMETER
+            error_msg += " (Invalid parameter)"
+        else:
+            error_msg += f" (Unknown Windows error {error_code})"
+
+        print(f"Windows keyboard hook error: {error_msg}")
+        raise RuntimeError(error_msg)
+
     # Register to remove the hook when the interpreter exits. Unfortunately a
     # try/finally block doesn't seem to work here.
-    atexit.register(UnhookWindowsHookEx, keyboard_callback)
+    atexit.register(UnhookWindowsHookEx, keyboard_hook)
 
 def listen(callback):
     prepare_intercept(callback)
