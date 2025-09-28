@@ -11,11 +11,20 @@ try:
 except ImportError:
     keyboard = None
 
+try:
+    from PyQt5.QtCore import Qt
+except ImportError:
+    try:
+        from PyQt6.QtCore import Qt
+    except ImportError:
+        Qt = None
+
 class GlobalHotkeyController:
     def __init__(self):
         self.thread = None
         self.running = False
         self.reviewer_active = False
+        self.always_on_top_enabled = False
 
     def start_listener(self):
         if keyboard is None:
@@ -47,6 +56,9 @@ class GlobalHotkeyController:
                     elif keyboard.is_pressed('ctrl+x'):
                         self._score_card('again')
                         time.sleep(0.5)  # Prevent rapid firing
+                    elif keyboard.is_pressed('ctrl+o'):
+                        self._toggle_always_on_top_threadsafe()
+                        time.sleep(0.5)  # Prevent rapid firing
 
                 time.sleep(0.1)  # Small delay to prevent excessive CPU usage
             except Exception as e:
@@ -69,6 +81,32 @@ class GlobalHotkeyController:
 
         # Execute on main thread
         mw.progress.timer(10, score_on_main_thread, False)
+
+    def toggle_always_on_top(self):
+        if Qt is None:
+            mw.utils.showInfo("Qt library not available for always-on-top functionality")
+            return
+
+        try:
+            self.always_on_top_enabled = not self.always_on_top_enabled
+
+            if self.always_on_top_enabled:
+                # Enable always-on-top
+                mw.setWindowFlags(mw.windowFlags() | Qt.WindowStaysOnTopHint)
+                mw.show()
+                mw.utils.tooltip("Always-on-top enabled", period=1000)
+            else:
+                # Disable always-on-top
+                mw.setWindowFlags(mw.windowFlags() & ~Qt.WindowStaysOnTopHint)
+                mw.show()
+                mw.utils.tooltip("Always-on-top disabled", period=1000)
+        except Exception as e:
+            print(f"Error toggling always-on-top: {e}")
+            mw.utils.showInfo(f"Error toggling always-on-top: {e}")
+
+    def _toggle_always_on_top_threadsafe(self):
+        # Execute always-on-top toggle on main thread
+        mw.progress.timer(10, self.toggle_always_on_top, False)
 
     def on_reviewer_did_show_question(self, card):
         self.reviewer_active = True
