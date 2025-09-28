@@ -171,8 +171,8 @@ class GlobalHotkeyController:
     def on_reviewer_will_end(self):
         self.reviewer_active = False
 
-    def on_main_window_state_changed(self, state, old_state):
-        if state != "review":
+    def on_main_window_state_changed(self, new_state, old_state):
+        if new_state != "review":
             self.reviewer_active = False
 
 # Global instance
@@ -182,13 +182,13 @@ hotkey_controller = GlobalHotkeyController()
 def setup_hooks():
     gui_hooks.reviewer_did_show_question.append(hotkey_controller.on_reviewer_did_show_question)
     gui_hooks.reviewer_will_end.append(hotkey_controller.on_reviewer_will_end)
-    gui_hooks.main_window_state_did_change.append(hotkey_controller.on_main_window_state_changed)
+    gui_hooks.state_did_change.append(hotkey_controller.on_main_window_state_changed)
 
 def cleanup_hooks():
     try:
         gui_hooks.reviewer_did_show_question.remove(hotkey_controller.on_reviewer_did_show_question)
         gui_hooks.reviewer_will_end.remove(hotkey_controller.on_reviewer_will_end)
-        gui_hooks.main_window_state_did_change.remove(hotkey_controller.on_main_window_state_changed)
+        gui_hooks.state_did_change.remove(hotkey_controller.on_main_window_state_changed)
     except ValueError:
         pass  # Hook wasn't registered
 
