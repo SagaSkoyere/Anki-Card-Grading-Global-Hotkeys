@@ -83,7 +83,7 @@ class GlobalHotkeyController:
                 self._setup_qt_shortcuts()
                 self.use_qt_shortcuts = True
                 debug_log("Using Qt shortcuts as fallback")
-                mw.utils.tooltip("Using Qt shortcuts (limited global functionality)", period=2000)
+                mw.utils.tooltip("Hotkeys active: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top)\nOnly works when Anki has focus", period=4000)
             else:
                 error_msg = "Neither keyboard library nor Qt shortcuts available"
                 debug_log(error_msg)
@@ -94,32 +94,139 @@ class GlobalHotkeyController:
             debug_log("Listener already running")
             return
 
+        # Test keyboard library functionality before starting thread
+        try:
+            debug_log("Testing keyboard library functionality...")
+            # This will trigger keyboard hook initialization on first call
+            test_result = keyboard.is_pressed('f24')  # F24 key unlikely to be pressed
+            debug_log(f"Keyboard library test successful: {test_result}")
+        except RuntimeError as e:
+            debug_log(f"Windows keyboard hook failed: {e}")
+            error_msg = str(e)
+
+            # Provide user-friendly guidance for common Windows issues
+            user_msg = "Global hotkeys failed to initialize.\n\n"
+            if "Access denied" in error_msg:
+                user_msg += "• Try running Anki as administrator\n"
+                user_msg += "• Check if antivirus software is blocking keyboard hooks\n"
+            elif "error code: 5" in error_msg.lower():
+                user_msg += "• Try running Anki as administrator\n"
+                user_msg += "• Check Windows security settings\n"
+            else:
+                user_msg += "• Try running Anki as administrator\n"
+                user_msg += "• Check if antivirus software is blocking the application\n"
+                user_msg += "• Temporarily disable Windows Defender real-time protection\n"
+
+            user_msg += f"\nFalling back to limited hotkeys (only when Anki has focus).\nTechnical details: {error_msg}\n\nCheck {debug_file} for more information."
+
+            # Fall back to Qt shortcuts
+            if QShortcut is not None:
+                self._setup_qt_shortcuts()
+                self.use_qt_shortcuts = True
+                debug_log("Falling back to Qt shortcuts after Windows hook failure")
+                mw.utils.showInfo(user_msg)
+            else:
+                debug_log("Qt shortcuts also unavailable after Windows hook failure")
+                mw.utils.showInfo(f"Hotkey Error: {user_msg}")
+            return
+        except Exception as e:
+            debug_log(f"Unexpected keyboard library error: {e}")
+            # Fall back to Qt shortcuts for any other keyboard library errors
+            if QShortcut is not None:
+                self._setup_qt_shortcuts()
+                self.use_qt_shortcuts = True
+                debug_log("Falling back to Qt shortcuts after unexpected keyboard error")
+                mw.utils.tooltip("Using Qt shortcuts due to keyboard library error", period=3000)
+            else:
+                error_msg = f"Keyboard library error: {e}"
+                debug_log(error_msg)
+                mw.utils.showInfo(f"Hotkey Error: {error_msg}\nCheck {debug_file} for details")
+            return
+
         debug_log("Starting keyboard listener thread")
         self.running = True
         self.thread = threading.Thread(target=self._listen_for_hotkeys, daemon=True)
         self.thread.start()
-        mw.utils.tooltip(f"Hotkey listener started. Debug: {debug_file}", period=2000)
+        mw.utils.tooltip("Global hotkeys active: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top)\nWorks even when Anki is not in focus!", period=4000)
 
     def _setup_qt_shortcuts(self):
         if not QShortcut or not mw:
+            debug_log("Cannot setup Qt shortcuts: QShortcut or mw not available")
             return
 
         # Clear existing shortcuts
         for shortcut in self.qt_shortcuts:
-            shortcut.deleteLater()
+            try:
+                shortcut.deleteLater()
+            except Exception as e:
+                debug_log(f"Error deleting Qt shortcut: {e}")
         self.qt_shortcuts.clear()
+        debug_log("Cleared existing Qt shortcuts")
 
         # Create Qt shortcuts (only work when Anki has focus)
         shortcuts = [
-            (QKeySequence("Ctrl+Z"), lambda: self._score_card('good')),
-            (QKeySequence("Ctrl+X"), lambda: self._score_card('again')),
-            (QKeySequence("Ctrl+O"), lambda: self.toggle_always_on_top())
+            ("Ctrl+Z", lambda: self._qt_score_card_safe('good'), "Score card as Good"),
+            ("Ctrl+X", lambda: self._qt_score_card_safe('again'), "Score card as Again"),
+            ("Ctrl+O", lambda: self._qt_toggle_always_on_top_safe(), "Toggle always on top")
         ]
 
-        for key_seq, callback in shortcuts:
-            shortcut = QShortcut(key_seq, mw)
-            shortcut.activated.connect(callback)
-            self.qt_shortcuts.append(shortcut)
+        success_count = 0
+        for key_combination, callback, description in shortcuts:
+            try:
+                key_seq = QKeySequence(key_combination)
+                if key_seq.isEmpty():
+                    debug_log(f"Invalid key sequence: {key_combination}")
+                    continue
+
+                shortcut = QShortcut(key_seq, mw)
+                shortcut.activated.connect(callback)
+
+                # Set context to only work when the main window has focus
+                shortcut.setContext(Qt.WindowShortcut)
+
+                self.qt_shortcuts.append(shortcut)
+                success_count += 1
+                debug_log(f"Created Qt shortcut: {key_combination} - {description}")
+
+            except Exception as e:
+                debug_log(f"Failed to create Qt shortcut {key_combination}: {e}")
+
+        debug_log(f"Successfully created {success_count}/{len(shortcuts)} Qt shortcuts")
+        if success_count > 0:
+            debug_log("Qt shortcuts active: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top)")
+
+    def _qt_score_card_safe(self, score):
+        """Thread-safe wrapper for scoring cards from Qt shortcuts"""
+        try:
+            debug_log(f"Qt shortcut triggered: score={score}")
+
+            # Check if we're in the right context (reviewing)
+            if not mw or not mw.reviewer or not mw.reviewer.card:
+                debug_log("Qt shortcut ignored: not in review mode")
+                mw.utils.tooltip("Hotkey only works during card review", period=1500)
+                return
+
+            current_state = mw.state if mw else "unknown"
+            if current_state != "review":
+                debug_log(f"Qt shortcut ignored: wrong state ({current_state})")
+                mw.utils.tooltip("Hotkey only works during card review", period=1500)
+                return
+
+            debug_log(f"Qt shortcut executing: scoring card as {score}")
+            self._score_card(score)
+
+        except Exception as e:
+            debug_log(f"Error in Qt shortcut score card: {e}")
+            mw.utils.tooltip(f"Hotkey error: {e}", period=2000)
+
+    def _qt_toggle_always_on_top_safe(self):
+        """Thread-safe wrapper for toggling always on top from Qt shortcuts"""
+        try:
+            debug_log("Qt shortcut triggered: toggle always on top")
+            self.toggle_always_on_top()
+        except Exception as e:
+            debug_log(f"Error in Qt shortcut always on top: {e}")
+            mw.utils.tooltip(f"Always on top error: {e}", period=2000)
 
     def stop_listener(self):
         self.running = False
@@ -251,6 +358,29 @@ def cleanup_hooks():
 
 # Setup when add-on loads
 setup_hooks()
+
+# Show startup message with addon info
+try:
+    if mw and mw.utils:
+        debug_log("Addon loaded successfully - showing startup message")
+        startup_msg = "Global Hotkey Card Control addon loaded!\n\n"
+        startup_msg += "Hotkeys:\n"
+        startup_msg += "• Ctrl+Z = Score card as Good\n"
+        startup_msg += "• Ctrl+X = Score card as Again\n"
+        startup_msg += "• Ctrl+O = Toggle always on top\n\n"
+        startup_msg += "Hotkeys will activate when you start reviewing cards.\n"
+        startup_msg += f"Debug log: {debug_file}"
+
+        # Use a timer to show the message after Anki is fully loaded
+        def show_startup_message():
+            if mw and mw.utils:
+                mw.utils.tooltip(startup_msg, period=5000)
+
+        # Delay the message slightly to ensure Anki is ready
+        from aqt.qt import QTimer
+        QTimer.singleShot(2000, show_startup_message)
+except Exception as e:
+    debug_log(f"Error showing startup message: {e}")
 
 # Cleanup when Anki closes
 def on_unload():
