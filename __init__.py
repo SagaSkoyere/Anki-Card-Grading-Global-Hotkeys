@@ -5,6 +5,8 @@ from aqt.reviewer import Reviewer
 from anki.hooks import addHook, remHook
 import sys
 import os
+import tempfile
+import datetime
 
 # Add bundled lib directory to path for keyboard library
 addon_dir = os.path.dirname(__file__)
@@ -12,25 +14,41 @@ lib_dir = os.path.join(addon_dir, "lib")
 if lib_dir not in sys.path:
     sys.path.insert(0, lib_dir)
 
+# Setup debug logging
+debug_file = os.path.join(tempfile.gettempdir(), "anki_hotkey_debug.txt")
+def debug_log(message):
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+    with open(debug_file, "a", encoding="utf-8") as f:
+        f.write(f"[{timestamp}] {message}\n")
+    print(message)  # Also print to console
+
+# Clear previous debug log
+try:
+    with open(debug_file, "w", encoding="utf-8") as f:
+        f.write(f"=== Anki Hotkey Debug Log Started at {datetime.datetime.now()} ===\n")
+        f.write(f"Debug file location: {debug_file}\n\n")
+except Exception as e:
+    print(f"Could not create debug file: {e}")
+
 # Try to import keyboard library (bundled first, then system)
 keyboard = None
 keyboard_status = ""
 try:
     import keyboard
     keyboard_status = f"✓ Keyboard library imported from: {keyboard.__file__}"
-    print(keyboard_status)
+    debug_log(keyboard_status)
 except ImportError as e:
     keyboard_status = f"✗ Initial keyboard import failed: {e}"
-    print(keyboard_status)
+    debug_log(keyboard_status)
     try:
         # Fallback: try system installation
         sys.path.append(lib_dir)
         import keyboard
         keyboard_status = f"✓ Keyboard library imported from lib directory: {keyboard.__file__}"
-        print(keyboard_status)
+        debug_log(keyboard_status)
     except ImportError as e2:
         keyboard_status = f"✗ Keyboard library import failed completely: {e2}"
-        print(keyboard_status)
+        debug_log(keyboard_status)
         keyboard = None
 
 try:
@@ -57,32 +75,30 @@ class GlobalHotkeyController:
         self.use_qt_shortcuts = False
 
     def start_listener(self):
-        status = f"start_listener called. keyboard={keyboard is not None}, running={self.running}"
-        print(status)
+        debug_log(f"start_listener called. keyboard={keyboard is not None}, running={self.running}")
 
         if keyboard is None:
             # Fallback to Qt shortcuts if keyboard library not available
             if QShortcut is not None:
                 self._setup_qt_shortcuts()
                 self.use_qt_shortcuts = True
-                print("Using Qt shortcuts as fallback")
-                mw.utils.tooltip(f"Hotkeys: Using Qt shortcuts (limited)\n{keyboard_status}", period=3000)
+                debug_log("Using Qt shortcuts as fallback")
+                mw.utils.tooltip("Using Qt shortcuts (limited global functionality)", period=2000)
             else:
                 error_msg = "Neither keyboard library nor Qt shortcuts available"
-                print(error_msg)
-                mw.utils.showInfo(f"Hotkey Error:\n{keyboard_status}\n{error_msg}")
+                debug_log(error_msg)
+                mw.utils.showInfo(f"Hotkey Error: {error_msg}\nCheck {debug_file} for details")
             return
 
         if self.running:
-            print("Listener already running")
-            mw.utils.tooltip("Hotkey listener already running", period=1000)
+            debug_log("Listener already running")
             return
 
-        print("Starting keyboard listener thread")
+        debug_log("Starting keyboard listener thread")
         self.running = True
         self.thread = threading.Thread(target=self._listen_for_hotkeys, daemon=True)
         self.thread.start()
-        mw.utils.tooltip(f"✓ Hotkey listener started\n{keyboard_status}", period=2000)
+        mw.utils.tooltip(f"Hotkey listener started. Debug: {debug_file}", period=2000)
 
     def _setup_qt_shortcuts(self):
         if not QShortcut or not mw:
@@ -119,64 +135,57 @@ class GlobalHotkeyController:
 
     def _listen_for_hotkeys(self):
         if keyboard is None:
-            print("Keyboard is None in _listen_for_hotkeys")
+            debug_log("Keyboard is None in _listen_for_hotkeys")
             return
 
-        print("Hotkey listener started")
+        debug_log("Hotkey listener started")
+        self._debug_counter = 0
         while self.running:
             try:
                 current_state = mw.state if mw else "unknown"
                 if self.reviewer_active and current_state == "review":
                     if keyboard.is_pressed('ctrl+z'):
-                        print("Ctrl+Z detected - scoring good")
+                        debug_log("Ctrl+Z detected - scoring good")
                         self._score_card('good')
                         time.sleep(0.5)  # Prevent rapid firing
                     elif keyboard.is_pressed('ctrl+x'):
-                        print("Ctrl+X detected - scoring again")
+                        debug_log("Ctrl+X detected - scoring again")
                         self._score_card('again')
                         time.sleep(0.5)  # Prevent rapid firing
                     elif keyboard.is_pressed('ctrl+o'):
-                        print("Ctrl+O detected - toggling always on top")
+                        debug_log("Ctrl+O detected - toggling always on top")
                         self._toggle_always_on_top_threadsafe()
                         time.sleep(0.5)  # Prevent rapid firing
                 # Debug output every 5 seconds
-                elif hasattr(self, '_debug_counter'):
-                    self._debug_counter += 1
-                    if self._debug_counter >= 50:  # 50 * 0.1s = 5 seconds
-                        print(f"Listener active. reviewer_active={self.reviewer_active}, mw.state={current_state}")
-                        self._debug_counter = 0
-                else:
+                self._debug_counter += 1
+                if self._debug_counter >= 50:  # 50 * 0.1s = 5 seconds
+                    debug_log(f"Listener active. reviewer_active={self.reviewer_active}, mw.state={current_state}")
                     self._debug_counter = 0
 
                 time.sleep(0.1)  # Small delay to prevent excessive CPU usage
             except Exception as e:
-                print(f"Hotkey listener error: {e}")
-        print("Hotkey listener stopped")
+                debug_log(f"Hotkey listener error: {e}")
+        debug_log("Hotkey listener stopped")
 
     def _score_card(self, score):
-        print(f"_score_card called with: {score}")
+        debug_log(f"_score_card called with: {score}")
         if not mw.reviewer or not mw.reviewer.card:
-            print("No reviewer or card available")
-            mw.utils.tooltip("No card available to score", period=1000)
+            debug_log("No reviewer or card available")
             return
 
         def score_on_main_thread():
             try:
-                print(f"Executing score on main thread: {score}")
+                debug_log(f"Executing score on main thread: {score}")
                 if score == 'good':
                     # Score as Good (3)
                     mw.reviewer._answerCard(3)
-                    print("Card scored as Good (3)")
-                    mw.utils.tooltip("Card scored: Good", period=800)
+                    debug_log("Card scored as Good (3)")
                 elif score == 'again':
                     # Score as Again (1)
                     mw.reviewer._answerCard(1)
-                    print("Card scored as Again (1)")
-                    mw.utils.tooltip("Card scored: Again", period=800)
+                    debug_log("Card scored as Again (1)")
             except Exception as e:
-                error_msg = f"Error scoring card: {e}"
-                print(error_msg)
-                mw.utils.tooltip(error_msg, period=2000)
+                debug_log(f"Error scoring card: {e}")
 
         # Execute on main thread
         mw.progress.timer(10, score_on_main_thread, False)
@@ -208,10 +217,9 @@ class GlobalHotkeyController:
         mw.progress.timer(10, self.toggle_always_on_top, False)
 
     def on_reviewer_did_show_question(self, card):
-        print(f"Reviewer showed question. Card: {card}")
+        debug_log(f"Reviewer showed question. Card: {card}")
         self.reviewer_active = True
-        print(f"reviewer_active set to: {self.reviewer_active}")
-        mw.utils.tooltip(f"Hotkeys active: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top)", period=1500)
+        debug_log(f"reviewer_active set to: {self.reviewer_active}")
         if not self.running:
             self.start_listener()
 
