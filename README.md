@@ -13,17 +13,14 @@ An Anki add-on that enables global hotkey control for card scoring during review
 
 ## Installation
 
-1. Install the required dependency:
-   ```bash
-   pip install keyboard>=0.13.5
-   ```
-
-2. Copy this add-on to your Anki add-ons directory:
+1. Copy this add-on to your Anki add-ons directory:
    - Windows: `%APPDATA%\Anki2\addons21\`
    - macOS: `~/Library/Application Support/Anki2/addons21/`
    - Linux: `~/.local/share/Anki2/addons21/`
 
-3. Restart Anki
+2. Restart Anki
+
+**No additional dependencies required!** The keyboard library is bundled with the add-on.
 
 ## Usage
 
@@ -38,13 +35,15 @@ An Anki add-on that enables global hotkey control for card scoring during review
 ## Requirements
 
 - Anki 2.1.45+
-- Python keyboard library
 - Administrative privileges may be required for global hotkey detection on some systems
+
+**Dependencies are automatically handled** - no manual installation needed!
 
 ## Notes
 
 - The add-on only listens for hotkeys during active review sessions
 - There's a 0.5-second delay between hotkey presses to prevent rapid firing
-- If the keyboard library is not available, the add-on will show an installation prompt
+- **Automatic fallback**: If global hotkeys aren't available, Qt shortcuts are used (require Anki focus)
 - Always-on-top mode is off by default and can be toggled with Ctrl+O
 - Visual tooltips confirm when always-on-top mode is enabled/disabled
+- Dependencies are bundled - no separate installation required

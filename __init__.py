@@ -6,18 +6,37 @@ from anki.hooks import addHook, remHook
 import sys
 import os
 
+# Add bundled lib directory to path for keyboard library
+addon_dir = os.path.dirname(__file__)
+lib_dir = os.path.join(addon_dir, "lib")
+if lib_dir not in sys.path:
+    sys.path.insert(0, lib_dir)
+
+# Try to import keyboard library (bundled first, then system)
+keyboard = None
 try:
     import keyboard
 except ImportError:
-    keyboard = None
+    try:
+        # Fallback: try system installation
+        sys.path.append(lib_dir)
+        import keyboard
+    except ImportError:
+        keyboard = None
 
 try:
     from PyQt5.QtCore import Qt
+    from PyQt5.QtWidgets import QShortcut
+    from PyQt5.QtGui import QKeySequence
 except ImportError:
     try:
         from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QShortcut
+        from PyQt6.QtGui import QKeySequence
     except ImportError:
         Qt = None
+        QShortcut = None
+        QKeySequence = None
 
 class GlobalHotkeyController:
     def __init__(self):
@@ -25,10 +44,18 @@ class GlobalHotkeyController:
         self.running = False
         self.reviewer_active = False
         self.always_on_top_enabled = False
+        self.qt_shortcuts = []
+        self.use_qt_shortcuts = False
 
     def start_listener(self):
         if keyboard is None:
-            mw.utils.showInfo("keyboard library not available. Please install it with: pip install keyboard")
+            # Fallback to Qt shortcuts if keyboard library not available
+            if QShortcut is not None:
+                self._setup_qt_shortcuts()
+                self.use_qt_shortcuts = True
+                mw.utils.tooltip("Using Qt shortcuts (limited global functionality)", period=2000)
+            else:
+                mw.utils.showInfo("Neither keyboard library nor Qt shortcuts available. Hotkeys will not work.")
             return
 
         if self.running:
@@ -38,10 +65,38 @@ class GlobalHotkeyController:
         self.thread = threading.Thread(target=self._listen_for_hotkeys, daemon=True)
         self.thread.start()
 
+    def _setup_qt_shortcuts(self):
+        if not QShortcut or not mw:
+            return
+
+        # Clear existing shortcuts
+        for shortcut in self.qt_shortcuts:
+            shortcut.deleteLater()
+        self.qt_shortcuts.clear()
+
+        # Create Qt shortcuts (only work when Anki has focus)
+        shortcuts = [
+            (QKeySequence("Ctrl+Z"), lambda: self._score_card('good')),
+            (QKeySequence("Ctrl+X"), lambda: self._score_card('again')),
+            (QKeySequence("Ctrl+O"), lambda: self.toggle_always_on_top())
+        ]
+
+        for key_seq, callback in shortcuts:
+            shortcut = QShortcut(key_seq, mw)
+            shortcut.activated.connect(callback)
+            self.qt_shortcuts.append(shortcut)
+
     def stop_listener(self):
         self.running = False
         if self.thread and self.thread.is_alive():
             self.thread.join(timeout=1.0)
+
+        # Clean up Qt shortcuts
+        if self.use_qt_shortcuts:
+            for shortcut in self.qt_shortcuts:
+                shortcut.deleteLater()
+            self.qt_shortcuts.clear()
+            self.use_qt_shortcuts = False
 
     def _listen_for_hotkeys(self):
         if keyboard is None:
