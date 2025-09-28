@@ -14,18 +14,23 @@ if lib_dir not in sys.path:
 
 # Try to import keyboard library (bundled first, then system)
 keyboard = None
+keyboard_status = ""
 try:
     import keyboard
-    print(f"Keyboard library imported successfully from: {keyboard.__file__}")
+    keyboard_status = f"✓ Keyboard library imported from: {keyboard.__file__}"
+    print(keyboard_status)
 except ImportError as e:
-    print(f"Initial keyboard import failed: {e}")
+    keyboard_status = f"✗ Initial keyboard import failed: {e}"
+    print(keyboard_status)
     try:
         # Fallback: try system installation
         sys.path.append(lib_dir)
         import keyboard
-        print(f"Keyboard library imported from lib directory: {keyboard.__file__}")
+        keyboard_status = f"✓ Keyboard library imported from lib directory: {keyboard.__file__}"
+        print(keyboard_status)
     except ImportError as e2:
-        print(f"Keyboard library import failed completely: {e2}")
+        keyboard_status = f"✗ Keyboard library import failed completely: {e2}"
+        print(keyboard_status)
         keyboard = None
 
 try:
@@ -52,27 +57,32 @@ class GlobalHotkeyController:
         self.use_qt_shortcuts = False
 
     def start_listener(self):
-        print(f"start_listener called. keyboard={keyboard is not None}, running={self.running}")
+        status = f"start_listener called. keyboard={keyboard is not None}, running={self.running}"
+        print(status)
+
         if keyboard is None:
             # Fallback to Qt shortcuts if keyboard library not available
             if QShortcut is not None:
                 self._setup_qt_shortcuts()
                 self.use_qt_shortcuts = True
                 print("Using Qt shortcuts as fallback")
-                mw.utils.tooltip("Using Qt shortcuts (limited global functionality)", period=2000)
+                mw.utils.tooltip(f"Hotkeys: Using Qt shortcuts (limited)\n{keyboard_status}", period=3000)
             else:
-                print("Neither keyboard library nor Qt shortcuts available")
-                mw.utils.showInfo("Neither keyboard library nor Qt shortcuts available. Hotkeys will not work.")
+                error_msg = "Neither keyboard library nor Qt shortcuts available"
+                print(error_msg)
+                mw.utils.showInfo(f"Hotkey Error:\n{keyboard_status}\n{error_msg}")
             return
 
         if self.running:
             print("Listener already running")
+            mw.utils.tooltip("Hotkey listener already running", period=1000)
             return
 
         print("Starting keyboard listener thread")
         self.running = True
         self.thread = threading.Thread(target=self._listen_for_hotkeys, daemon=True)
         self.thread.start()
+        mw.utils.tooltip(f"✓ Hotkey listener started\n{keyboard_status}", period=2000)
 
     def _setup_qt_shortcuts(self):
         if not QShortcut or not mw:
@@ -147,6 +157,7 @@ class GlobalHotkeyController:
         print(f"_score_card called with: {score}")
         if not mw.reviewer or not mw.reviewer.card:
             print("No reviewer or card available")
+            mw.utils.tooltip("No card available to score", period=1000)
             return
 
         def score_on_main_thread():
@@ -156,12 +167,16 @@ class GlobalHotkeyController:
                     # Score as Good (3)
                     mw.reviewer._answerCard(3)
                     print("Card scored as Good (3)")
+                    mw.utils.tooltip("Card scored: Good", period=800)
                 elif score == 'again':
                     # Score as Again (1)
                     mw.reviewer._answerCard(1)
                     print("Card scored as Again (1)")
+                    mw.utils.tooltip("Card scored: Again", period=800)
             except Exception as e:
-                print(f"Error scoring card: {e}")
+                error_msg = f"Error scoring card: {e}"
+                print(error_msg)
+                mw.utils.tooltip(error_msg, period=2000)
 
         # Execute on main thread
         mw.progress.timer(10, score_on_main_thread, False)
@@ -196,6 +211,7 @@ class GlobalHotkeyController:
         print(f"Reviewer showed question. Card: {card}")
         self.reviewer_active = True
         print(f"reviewer_active set to: {self.reviewer_active}")
+        mw.utils.tooltip(f"Hotkeys active: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top)", period=1500)
         if not self.running:
             self.start_listener()
 
