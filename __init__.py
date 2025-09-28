@@ -1,0 +1,113 @@
+import threading
+import time
+from aqt import mw, gui_hooks
+from aqt.reviewer import Reviewer
+from anki.hooks import addHook, remHook
+import sys
+import os
+
+try:
+    import keyboard
+except ImportError:
+    keyboard = None
+
+class GlobalHotkeyController:
+    def __init__(self):
+        self.thread = None
+        self.running = False
+        self.reviewer_active = False
+
+    def start_listener(self):
+        if keyboard is None:
+            mw.utils.showInfo("keyboard library not available. Please install it with: pip install keyboard")
+            return
+
+        if self.running:
+            return
+
+        self.running = True
+        self.thread = threading.Thread(target=self._listen_for_hotkeys, daemon=True)
+        self.thread.start()
+
+    def stop_listener(self):
+        self.running = False
+        if self.thread and self.thread.is_alive():
+            self.thread.join(timeout=1.0)
+
+    def _listen_for_hotkeys(self):
+        if keyboard is None:
+            return
+
+        while self.running:
+            try:
+                if self.reviewer_active and mw.state == "review":
+                    if keyboard.is_pressed('ctrl+z'):
+                        self._score_card('good')
+                        time.sleep(0.5)  # Prevent rapid firing
+                    elif keyboard.is_pressed('ctrl+x'):
+                        self._score_card('again')
+                        time.sleep(0.5)  # Prevent rapid firing
+
+                time.sleep(0.1)  # Small delay to prevent excessive CPU usage
+            except Exception as e:
+                print(f"Hotkey listener error: {e}")
+
+    def _score_card(self, score):
+        if not mw.reviewer or not mw.reviewer.card:
+            return
+
+        def score_on_main_thread():
+            try:
+                if score == 'good':
+                    # Score as Good (3)
+                    mw.reviewer._answerCard(3)
+                elif score == 'again':
+                    # Score as Again (1)
+                    mw.reviewer._answerCard(1)
+            except Exception as e:
+                print(f"Error scoring card: {e}")
+
+        # Execute on main thread
+        mw.progress.timer(10, score_on_main_thread, False)
+
+    def on_reviewer_did_show_question(self, card):
+        self.reviewer_active = True
+        if not self.running:
+            self.start_listener()
+
+    def on_reviewer_will_end(self):
+        self.reviewer_active = False
+
+    def on_main_window_state_changed(self, state, old_state):
+        if state != "review":
+            self.reviewer_active = False
+
+# Global instance
+hotkey_controller = GlobalHotkeyController()
+
+# Hook into Anki events
+def setup_hooks():
+    gui_hooks.reviewer_did_show_question.append(hotkey_controller.on_reviewer_did_show_question)
+    gui_hooks.reviewer_will_end.append(hotkey_controller.on_reviewer_will_end)
+    gui_hooks.main_window_state_did_change.append(hotkey_controller.on_main_window_state_changed)
+
+def cleanup_hooks():
+    try:
+        gui_hooks.reviewer_did_show_question.remove(hotkey_controller.on_reviewer_did_show_question)
+        gui_hooks.reviewer_will_end.remove(hotkey_controller.on_reviewer_will_end)
+        gui_hooks.main_window_state_did_change.remove(hotkey_controller.on_main_window_state_changed)
+    except ValueError:
+        pass  # Hook wasn't registered
+
+    hotkey_controller.stop_listener()
+
+# Setup when add-on loads
+setup_hooks()
+
+# Cleanup when Anki closes
+def on_unload():
+    cleanup_hooks()
+
+# Register cleanup
+addHook("unloadProfile", on_unload)
+addHook("profileClosed", on_unload)
