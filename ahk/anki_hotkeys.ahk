@@ -13,11 +13,10 @@
         ; Activate Anki window
         WinActivate("ahk_exe anki.exe")
         ; Wait briefly for window activation
-        Sleep(50)
+        Sleep(100)
         ; Send F13 key which Anki will catch with Qt shortcuts
         Send("{F13}")
     }
-    return
 }
 
 ; Ctrl+X -> Score card as Again
@@ -29,11 +28,10 @@
         ; Activate Anki window
         WinActivate("ahk_exe anki.exe")
         ; Wait briefly for window activation
-        Sleep(50)
+        Sleep(100)
         ; Send F14 key which Anki will catch with Qt shortcuts
         Send("{F14}")
     }
-    return
 }
 
 ; Ctrl+O -> Toggle always on top
@@ -45,12 +43,18 @@
         ; Activate Anki window
         WinActivate("ahk_exe anki.exe")
         ; Wait briefly for window activation
-        Sleep(50)
+        Sleep(100)
         ; Send F15 key which Anki will catch with Qt shortcuts
         Send("{F15}")
     }
-    return
 }
 
 ; Exit hotkey for cleanup (Ctrl+Alt+Q)
 ^!q::ExitApp()
+
+; Test hotkey for debugging (Ctrl+Alt+T)
+^!t::
+{
+    ; Send a simple message box to verify AHK is working
+    MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist())
+}
