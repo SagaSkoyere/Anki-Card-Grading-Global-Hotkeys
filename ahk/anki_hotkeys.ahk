@@ -3,45 +3,53 @@
 
 ; Global hotkeys for Anki card review
 ; These work regardless of which window has focus
-; Uses PostMessage to send Windows messages to Anki process
-; Message codes: 0x464 (Good), 0x465 (Again), 0x466 (Toggle Top)
+; Uses PostMessage to send standard keyboard keys to Anki process
+; Key codes: 0x20 (Spacebar), 0x31 ('1'), 0x33 ('3')
 
-; Ctrl+Z -> Score card as Good
+; Ctrl+Shift -> Show Answer (send Spacebar)
+^+a::
+{
+    ; Check if Anki is running
+    if (WinExist("ahk_exe anki.exe"))
+    {
+        ; Send Spacebar via PostMessage for "Show Answer"
+        ; 0x20 is the virtual key code for Spacebar
+        PostMessage, 0x100, 0x20, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for Spacebar
+        PostMessage, 0x101, 0x20, 0,, ahk_exe anki.exe  ; WM_KEYUP for Spacebar
+    }
+}
+
+; Ctrl+Z -> Score card as Again (send '1' key)
 ^z::
 {
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send custom Windows message for "Good" score
-        ; WM_USER + 100 = 0x464 for Good action
-        ; Send both KEYDOWN and KEYUP messages
-        PostMessage, 0x464, 1, 0,, ahk_exe anki.exe  ; Custom message for Good score
+        ; Send '1' key via PostMessage for "Again" score
+        ; 0x31 is the virtual key code for '1'
+        PostMessage, 0x100, 0x31, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for '1'
+        PostMessage, 0x101, 0x31, 0,, ahk_exe anki.exe  ; WM_KEYUP for '1'
     }
 }
 
-; Ctrl+X -> Score card as Again
+; Ctrl+X -> Score card as Good (send '3' key)
 ^x::
 {
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send custom Windows message for "Again" score
-        ; WM_USER + 101 = 0x465 for Again action
-        PostMessage, 0x465, 1, 0,, ahk_exe anki.exe  ; Custom message for Again score
+        ; Send '3' key via PostMessage for "Good" score
+        ; 0x33 is the virtual key code for '3'
+        PostMessage, 0x100, 0x33, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for '3'
+        PostMessage, 0x101, 0x33, 0,, ahk_exe anki.exe  ; WM_KEYUP for '3'
     }
 }
 
-; Ctrl+O -> Toggle always on top
-^o::
-{
-    ; Check if Anki is running
-    if (WinExist("ahk_exe anki.exe"))
-    {
-        ; Send custom Windows message for toggle always on top
-        ; WM_USER + 102 = 0x466 for toggle always on top action
-        PostMessage, 0x466, 1, 0,, ahk_exe anki.exe  ; Custom message for toggle always on top
-    }
-}
+; Ctrl+O -> Toggle always on top (legacy - no longer used)
+; ^o::
+; {
+;     ; This functionality has been removed for simplicity
+; }
 
 ; Exit hotkey for cleanup (Ctrl+Alt+Q)
 ^!q::ExitApp()
@@ -52,7 +60,7 @@
     ; Send a simple message box to verify AHK is working
     if (WinExist("ahk_exe anki.exe"))
     {
-        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nAnki process found - PostMessage ready!")
+        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nAnki process found - PostMessage ready!`n`nHotkeys:`nCtrl+Shift+A = Show Answer (Spacebar)`nCtrl+Z = Again (1 key)`nCtrl+X = Good (3 key)")
     }
     else
     {
