@@ -14,8 +14,8 @@
     {
         ; Send Spacebar via PostMessage for "Show Answer"
         ; 0x20 is the virtual key code for Spacebar
-        PostMessage, 0x100, 0x20, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for Spacebar
-        PostMessage, 0x101, 0x20, 0,, ahk_exe anki.exe  ; WM_KEYUP for Spacebar
+        PostMessage(0x100, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for Spacebar
+        PostMessage(0x101, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for Spacebar
     }
 }
 
@@ -27,8 +27,8 @@
     {
         ; Send '1' key via PostMessage for "Again" score
         ; 0x31 is the virtual key code for '1'
-        PostMessage, 0x100, 0x31, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for '1'
-        PostMessage, 0x101, 0x31, 0,, ahk_exe anki.exe  ; WM_KEYUP for '1'
+        PostMessage(0x100, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '1'
+        PostMessage(0x101, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '1'
     }
 }
 
@@ -40,8 +40,8 @@
     {
         ; Send '3' key via PostMessage for "Good" score
         ; 0x33 is the virtual key code for '3'
-        PostMessage, 0x100, 0x33, 0,, ahk_exe anki.exe  ; WM_KEYDOWN for '3'
-        PostMessage, 0x101, 0x33, 0,, ahk_exe anki.exe  ; WM_KEYUP for '3'
+        PostMessage(0x100, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '3'
+        PostMessage(0x101, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '3'
     }
 }
 
