@@ -1,0 +1,14 @@
+{
+    "package": "anki_hotkey_control_v2",
+    "name": "Global Hotkey Card Control v2 (Enhanced Qt)",
+    "mod": 1234567890,
+    "author": "Terragon Labs",
+    "description": "Version 2: Enhanced Qt shortcuts with retry logic. Global hotkeys: Ctrl+Z (Good), Ctrl+X (Again), Ctrl+O (Always on top). Includes advanced diagnostics for troubleshooting.",
+    "homepage": "",
+    "tags": ["hotkeys", "productivity", "review", "autohotkey", "global", "qt"],
+    "conflicts": [],
+    "min_point_version": 45,
+    "max_point_version": 0,
+    "branch_index": 0,
+    "human_version": "2.0.2"
+}

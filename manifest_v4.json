@@ -1,0 +1,14 @@
+{
+    "package": "anki_hotkey_control_v4",
+    "name": "Global Hotkey Card Control v4 (PostMessage)",
+    "mod": 1234567890,
+    "author": "Terragon Labs",
+    "description": "Version 4: PostMessage method - most robust! Uses Windows API messages directly. Works everywhere regardless of focus or window state. No dependencies.",
+    "homepage": "",
+    "tags": ["hotkeys", "productivity", "review", "autohotkey", "postmessage", "windows-api"],
+    "conflicts": [],
+    "min_point_version": 45,
+    "max_point_version": 0,
+    "branch_index": 0,
+    "human_version": "4.0.0"
+}
