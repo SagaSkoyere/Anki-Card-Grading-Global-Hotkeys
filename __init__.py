@@ -82,7 +82,7 @@ class AHKGlobalHotkeyController:
             )
             debug_log(f"AutoHotkey process started with PID: {self.ahk_process.pid}")
 
-            tooltip("🎯 Global hotkeys active!\\n\\nCtrl+Shift+A = Show Answer, Ctrl+Z = Again, Ctrl+X = Good\\nWorks everywhere - even when Anki is not in focus!", period=4000)
+            tooltip("Global hotkeys active!Ctrl+Shift+A = Show Answer, Ctrl+Z = Again, Ctrl+X = Good", period=4000)
 
         except Exception as e:
             error_msg = f"Failed to start AutoHotkey: {e}"
@@ -213,14 +213,7 @@ setup_hooks()
 try:
     if mw:
         debug_log("Addon loaded successfully - showing startup message")
-        startup_msg = "🎯 AutoHotkey Global Hotkeys loaded!\\n\\n"
-        startup_msg += "Global Hotkeys (work everywhere):\\n"
-        startup_msg += "• Ctrl+Shift+A = Show Answer (Spacebar)\\n"
-        startup_msg += "• Ctrl+Z = Again (1 key)\\n"
-        startup_msg += "• Ctrl+X = Good (3 key)\\n\\n"
-        startup_msg += "Using PostMessage keyboard simulation\\n"
-        startup_msg += "Hotkeys will activate when you start reviewing cards!\\n"
-        startup_msg += f"Debug log: {debug_file}"
+        startup_msg = "🎯 AutoHotkey Global Hotkeys loaded!"
 
         # Use a timer to show the message after Anki is fully loaded
         def show_startup_message():
