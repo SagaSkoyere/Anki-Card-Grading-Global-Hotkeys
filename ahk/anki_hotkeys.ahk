@@ -3,6 +3,8 @@
 
 ; Global hotkeys for Anki card review
 ; These work regardless of which window has focus
+; Uses PostMessage to send Windows messages to Anki process
+; Message codes: 0x464 (Good), 0x465 (Again), 0x466 (Toggle Top)
 
 ; Ctrl+Z -> Score card as Good
 ^z::
@@ -10,12 +12,10 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Activate Anki window
-        WinActivate("ahk_exe anki.exe")
-        ; Wait briefly for window activation
-        Sleep(100)
-        ; Send F13 key which Anki will catch with Qt shortcuts
-        Send("{F13}")
+        ; Send custom Windows message for "Good" score
+        ; WM_USER + 100 = 0x464 for Good action
+        ; Send both KEYDOWN and KEYUP messages
+        PostMessage, 0x464, 1, 0,, ahk_exe anki.exe  ; Custom message for Good score
     }
 }
 
@@ -25,12 +25,9 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Activate Anki window
-        WinActivate("ahk_exe anki.exe")
-        ; Wait briefly for window activation
-        Sleep(100)
-        ; Send F14 key which Anki will catch with Qt shortcuts
-        Send("{F14}")
+        ; Send custom Windows message for "Again" score
+        ; WM_USER + 101 = 0x465 for Again action
+        PostMessage, 0x465, 1, 0,, ahk_exe anki.exe  ; Custom message for Again score
     }
 }
 
@@ -40,12 +37,9 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Activate Anki window
-        WinActivate("ahk_exe anki.exe")
-        ; Wait briefly for window activation
-        Sleep(100)
-        ; Send F15 key which Anki will catch with Qt shortcuts
-        Send("{F15}")
+        ; Send custom Windows message for toggle always on top
+        ; WM_USER + 102 = 0x466 for toggle always on top action
+        PostMessage, 0x466, 1, 0,, ahk_exe anki.exe  ; Custom message for toggle always on top
     }
 }
 
@@ -56,5 +50,12 @@
 ^!t::
 {
     ; Send a simple message box to verify AHK is working
-    MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist())
+    if (WinExist("ahk_exe anki.exe"))
+    {
+        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nAnki process found - PostMessage ready!")
+    }
+    else
+    {
+        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nWarning: Anki process not found!")
+    }
 }

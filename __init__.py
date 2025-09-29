@@ -8,20 +8,24 @@ from aqt import mw, gui_hooks
 from aqt.utils import tooltip, showInfo
 from anki.hooks import addHook, remHook
 
-# Try to import Qt components for shortcuts and always-on-top functionality
+# Try to import Qt components for Windows message handling and always-on-top functionality
 try:
-    from PyQt5.QtCore import Qt
+    from PyQt5.QtCore import Qt, QAbstractNativeEventFilter, QCoreApplication
     from PyQt5.QtWidgets import QShortcut
     from PyQt5.QtGui import QKeySequence
+    import struct
 except ImportError:
     try:
-        from PyQt6.QtCore import Qt
+        from PyQt6.QtCore import Qt, QAbstractNativeEventFilter, QCoreApplication
         from PyQt6.QtWidgets import QShortcut
         from PyQt6.QtGui import QKeySequence
+        import struct
     except ImportError:
         Qt = None
         QShortcut = None
         QKeySequence = None
+        QAbstractNativeEventFilter = None
+        QCoreApplication = None
 
 # Setup debug logging
 addon_dir = os.path.dirname(__file__)
@@ -41,6 +45,47 @@ try:
 except Exception as e:
     print(f"Could not create debug file: {e}")
 
+class WindowsMessageFilter(QAbstractNativeEventFilter):
+    """Filter to handle Windows messages from AutoHotkey PostMessage calls"""
+
+    def __init__(self, controller):
+        super().__init__()
+        self.controller = controller
+        # Define custom message constants (WM_USER + offset)
+        self.WM_ANKI_GOOD = 0x464   # WM_USER + 100
+        self.WM_ANKI_AGAIN = 0x465  # WM_USER + 101
+        self.WM_ANKI_TOGGLE_TOP = 0x466  # WM_USER + 102
+        debug_log("WindowsMessageFilter initialized")
+
+    def nativeEventFilter(self, eventType, message):
+        """Handle native Windows messages"""
+        try:
+            if eventType == "windows_generic_MSG" or eventType == "windows_dispatcher_MSG":
+                # Parse Windows message structure
+                msg = struct.unpack('PPPPP', message[:struct.calcsize('PPPPP')])
+                hwnd, msg_type, wparam, lparam, time = msg
+
+                debug_log(f"Received Windows message: type={hex(msg_type)}, wparam={wparam}, lparam={lparam}")
+
+                # Handle our custom messages
+                if msg_type == self.WM_ANKI_GOOD:
+                    debug_log("Received GOOD score message from AHK")
+                    self.controller._score_card('good')
+                    return True, 0
+                elif msg_type == self.WM_ANKI_AGAIN:
+                    debug_log("Received AGAIN score message from AHK")
+                    self.controller._score_card('again')
+                    return True, 0
+                elif msg_type == self.WM_ANKI_TOGGLE_TOP:
+                    debug_log("Received TOGGLE_TOP message from AHK")
+                    self.controller.toggle_always_on_top()
+                    return True, 0
+
+        except Exception as e:
+            debug_log(f"Error in nativeEventFilter: {e}")
+
+        return False, 0
+
 class AHKGlobalHotkeyController:
     def __init__(self):
         self.ahk_process = None
@@ -48,6 +93,7 @@ class AHKGlobalHotkeyController:
         self.reviewer_active = False
         self.always_on_top_enabled = False
         self.qt_shortcuts = []
+        self.message_filter = None
 
     def start_global_hotkeys(self):
         """Start AutoHotkey global hotkeys when reviewing begins"""
@@ -83,8 +129,8 @@ class AHKGlobalHotkeyController:
             )
             debug_log(f"AutoHotkey process started with PID: {self.ahk_process.pid}")
 
-            # Setup Qt shortcuts to catch function keys from AHK
-            self._setup_function_key_shortcuts()
+            # Setup Windows message filter to catch PostMessage calls from AHK
+            self._setup_windows_message_filter()
 
             tooltip("🎯 Global hotkeys active!\\n\\nCtrl+Z = Good, Ctrl+X = Again, Ctrl+O = Always on top\\nWorks everywhere - even when Anki is not in focus!", period=4000)
 
@@ -111,17 +157,49 @@ class AHKGlobalHotkeyController:
             finally:
                 self.ahk_process = None
 
-        # Clean up Qt shortcuts
+        # Clean up Windows message filter
+        if self.message_filter and QCoreApplication.instance():
+            try:
+                QCoreApplication.instance().removeNativeEventFilter(self.message_filter)
+                debug_log("Windows message filter removed")
+            except Exception as e:
+                debug_log(f"Error removing Windows message filter: {e}")
+            finally:
+                self.message_filter = None
+
+        # Clean up Qt shortcuts (legacy cleanup)
         for shortcut in self.qt_shortcuts:
             try:
                 shortcut.deleteLater()
             except Exception as e:
                 debug_log(f"Error deleting Qt shortcut: {e}")
         self.qt_shortcuts.clear()
-        debug_log("Qt shortcuts cleaned up")
+        debug_log("Cleanup completed")
 
-    def _setup_function_key_shortcuts(self):
-        """Setup Qt shortcuts to catch function keys sent by AutoHotkey"""
+    def _setup_windows_message_filter(self):
+        """Setup Windows message filter to catch PostMessage calls from AutoHotkey"""
+        if not QAbstractNativeEventFilter or not QCoreApplication.instance():
+            debug_log("Cannot setup Windows message filter: Qt components not available")
+            return
+
+        try:
+            # Remove existing filter if any
+            if self.message_filter:
+                QCoreApplication.instance().removeNativeEventFilter(self.message_filter)
+
+            # Create and install new message filter
+            self.message_filter = WindowsMessageFilter(self)
+            QCoreApplication.instance().installNativeEventFilter(self.message_filter)
+            debug_log("Windows message filter installed successfully")
+
+        except Exception as e:
+            debug_log(f"Failed to setup Windows message filter: {e}")
+            # Fallback to function key shortcuts for compatibility
+            self._setup_function_key_shortcuts_fallback()
+
+    def _setup_function_key_shortcuts_fallback(self):
+        """Fallback to Qt shortcuts if Windows message filter fails"""
+        debug_log("Setting up fallback Qt shortcuts")
         if not QShortcut or not mw:
             debug_log("Cannot setup Qt shortcuts: QShortcut or mw not available")
             return
@@ -155,12 +233,12 @@ class AHKGlobalHotkeyController:
 
                 self.qt_shortcuts.append(shortcut)
                 success_count += 1
-                debug_log(f"Created Qt shortcut: {key_combination} - {description}")
+                debug_log(f"Created fallback Qt shortcut: {key_combination} - {description}")
 
             except Exception as e:
                 debug_log(f"Failed to create Qt shortcut {key_combination}: {e}")
 
-        debug_log(f"Successfully created {success_count}/{len(shortcuts)} Qt shortcuts for AHK communication")
+        debug_log(f"Successfully created {success_count}/{len(shortcuts)} fallback Qt shortcuts")
 
     def _score_card(self, score):
         """Score the current card"""
@@ -271,6 +349,7 @@ try:
         startup_msg += "• Ctrl+Z = Score card as Good\\n"
         startup_msg += "• Ctrl+X = Score card as Again\\n"
         startup_msg += "• Ctrl+O = Toggle always on top\\n\\n"
+        startup_msg += "Using PostMessage for improved communication\\n"
         startup_msg += "Hotkeys will activate when you start reviewing cards!\\n"
         startup_msg += f"Debug log: {debug_file}"
 
