@@ -4,25 +4,36 @@
 ; Global hotkeys for Anki card review
 ; These work regardless of which window has focus using ControlSend
 
-; Ctrl+Z -> Score card as Good
+; Ctrl+Shift -> Show answer (spacebar)
+^+::
+{
+    ; Check if Anki is running
+    if (WinExist("ahk_exe anki.exe"))
+    {
+        ; Send spacebar directly to Anki using ControlSend (works in background)
+        ControlSend("{Space}", , "ahk_exe anki.exe")
+    }
+}
+
+; Ctrl+Z -> Score card as Again (key '1')
 ^z::
 {
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send F13 key directly to Anki using ControlSend (works in background)
-        ControlSend("{F13}", , "ahk_exe anki.exe")
+        ; Send '1' key directly to Anki using ControlSend (works in background)
+        ControlSend("1", , "ahk_exe anki.exe")
     }
 }
 
-; Ctrl+X -> Score card as Again
+; Ctrl+X -> Score card as Good (key '3')
 ^x::
 {
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send F14 key directly to Anki using ControlSend (works in background)
-        ControlSend("{F14}", , "ahk_exe anki.exe")
+        ; Send '3' key directly to Anki using ControlSend (works in background)
+        ControlSend("3", , "ahk_exe anki.exe")
     }
 }
 
