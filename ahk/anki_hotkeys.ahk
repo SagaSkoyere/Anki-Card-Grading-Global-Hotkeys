@@ -3,7 +3,7 @@
 
 ; Global hotkeys for Anki card review
 ; These work regardless of which window has focus
-; Uses PostMessage to send standard keyboard keys to Anki process
+; Uses SendMessage to send standard keyboard keys to Anki process
 ; Key codes: 0x20 (Spacebar), 0x31 ('1'), 0x33 ('3')
 
 ; Ctrl+Shift -> Show Answer (send Spacebar)
@@ -12,10 +12,10 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send Spacebar via PostMessage for "Show Answer"
+        ; Send Spacebar via SendMessage for "Show Answer"
         ; 0x20 is the virtual key code for Spacebar
-        PostMessage(0x100, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for Spacebar
-        PostMessage(0x101, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for Spacebar
+        SendMessage(0x100, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for Spacebar
+        SendMessage(0x101, 0x20, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for Spacebar
     }
 }
 
@@ -25,10 +25,10 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send '1' key via PostMessage for "Again" score
+        ; Send '1' key via SendMessage for "Again" score
         ; 0x31 is the virtual key code for '1'
-        PostMessage(0x100, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '1'
-        PostMessage(0x101, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '1'
+        SendMessage(0x100, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '1'
+        SendMessage(0x101, 0x31, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '1'
     }
 }
 
@@ -38,10 +38,10 @@
     ; Check if Anki is running
     if (WinExist("ahk_exe anki.exe"))
     {
-        ; Send '3' key via PostMessage for "Good" score
+        ; Send '3' key via SendMessage for "Good" score
         ; 0x33 is the virtual key code for '3'
-        PostMessage(0x100, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '3'
-        PostMessage(0x101, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '3'
+        SendMessage(0x100, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYDOWN for '3'
+        SendMessage(0x101, 0x33, 0, , "ahk_exe anki.exe")  ; WM_KEYUP for '3'
     }
 }
 
@@ -60,7 +60,7 @@
     ; Send a simple message box to verify AHK is working
     if (WinExist("ahk_exe anki.exe"))
     {
-        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nAnki process found - PostMessage ready!`n`nHotkeys:`nCtrl+Shift+A = Show Answer (Spacebar)`nCtrl+Z = Again (1 key)`nCtrl+X = Good (3 key)")
+        MsgBox("AutoHotkey script is running! Process ID: " . ProcessExist() . "`nAnki process found - SendMessage ready!`n`nHotkeys:`nCtrl+Shift+A = Show Answer (Spacebar)`nCtrl+Z = Again (1 key)`nCtrl+X = Good (3 key)")
     }
     else
     {
